@@ -1,14 +1,21 @@
+pub mod events;
 pub mod networking;
+pub mod sound;
 
 use classicube_helpers::async_manager;
+use classicube_sys::Server;
 use tracing::debug;
 
 pub fn initialize() {
     debug!("plugin initialize");
 
     async_manager::initialize();
+    sound::initialize();
+    events::initialize();
 
-    networking::initialize();
+    if unsafe { Server.IsSinglePlayer } == 0 {
+        networking::initialize();
+    }
 }
 
 pub fn on_new_map() {
@@ -18,7 +25,9 @@ pub fn on_new_map() {
 pub fn on_new_map_loaded() {
     debug!("plugin on_new_map_loaded");
 
-    networking::on_new_map_loaded();
+    if unsafe { Server.IsSinglePlayer } == 0 {
+        networking::on_new_map_loaded();
+    }
 }
 
 pub fn reset() {
@@ -28,7 +37,12 @@ pub fn reset() {
 pub fn free() {
     debug!("plugin free");
 
-    networking::free();
+    if unsafe { Server.IsSinglePlayer } == 0 {
+        networking::free();
+    }
+
+    events::free();
+    sound::free();
 
     // this will stop all tasks immediately
     async_manager::shutdown();
