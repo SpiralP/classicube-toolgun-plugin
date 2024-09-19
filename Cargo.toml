@@ -1,0 +1,21 @@
+[package]
+name = "classicube-toolgun-plugin"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = { version = "1.0.89", features = ["backtrace"] }
+byteorder = "1.5.0"
+classicube-helpers = { git = "https://github.com/SpiralP/rust-classicube-helpers.git" }
+classicube-sys = { git = "https://github.com/SpiralP/rust-classicube-sys.git" }
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+
+
+[package.metadata.release]
+pre-release-commit-message = "Release {{version}}"
+tag-message = "Release version {{version}}"
