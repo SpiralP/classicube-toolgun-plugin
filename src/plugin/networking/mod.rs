@@ -4,7 +4,7 @@ use std::{cell::RefCell, io::Cursor};
 
 use anyhow::Error;
 use classicube_helpers::{async_manager, events::net::PluginMessageReceivedEventHandler};
-use classicube_sys::CPE_SendPluginMessage;
+use classicube_sys::{CPE_SendPluginMessage, Server};
 use tracing::{debug, error};
 
 use self::packet::Packet;
@@ -18,6 +18,11 @@ pub const CHANNEL: u8 = 71;
 pub const PLUGIN_MESSAGE_LENGTH: usize = 64;
 
 pub fn initialize() {
+    if unsafe { Server.IsSinglePlayer } != 0 {
+        // TODO singleplayer
+        return;
+    }
+
     let mut plugin_message_handler = PluginMessageReceivedEventHandler::new();
 
     plugin_message_handler.on(move |event| {
@@ -45,20 +50,22 @@ pub fn initialize() {
 }
 
 pub fn on_new_map_loaded() {
-    async_manager::spawn_local_on_main_thread(async move {
-        if let Err(e) = async move {
-            // send empty packet to tell server we have this plugin
-            let mut data = Vec::with_capacity(PLUGIN_MESSAGE_LENGTH);
-            unsafe {
-                CPE_SendPluginMessage(CHANNEL, data.as_mut_ptr());
+    if unsafe { Server.IsSinglePlayer } == 0 {
+        async_manager::spawn_local_on_main_thread(async move {
+            if let Err(e) = async move {
+                // send empty packet to tell server we have this plugin
+                let mut data = Vec::with_capacity(PLUGIN_MESSAGE_LENGTH);
+                unsafe {
+                    CPE_SendPluginMessage(CHANNEL, data.as_mut_ptr());
+                }
+                Ok::<_, Error>(())
             }
-            Ok::<_, Error>(())
-        }
-        .await
-        {
-            error!("{:?}", e);
-        }
-    });
+            .await
+            {
+                error!("{:?}", e);
+            }
+        });
+    }
 }
 
 pub fn free() {
