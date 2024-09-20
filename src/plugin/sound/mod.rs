@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::VecDeque, io::Cursor};
 
-use classicube_helpers::entities::ENTITY_SELF_ID;
-use classicube_sys::{Entities, Vec3};
+use classicube_helpers::{entities::ENTITY_SELF_ID, tick::TickEventHandler};
+use classicube_sys::Entities;
 use rodio::{Decoder, OutputStream, OutputStreamHandle, SpatialSink};
 
 use super::networking::packet::Packet;
@@ -16,14 +16,17 @@ thread_local!(
     > = Default::default();
 );
 
+thread_local!(
+    static TICK_HANDLER: RefCell<Option<TickEventHandler>> = Default::default();
+);
+
 pub fn handle_packet(packet: Packet) {
-    let self_entity = unsafe { &*Entities.List[ENTITY_SELF_ID as usize] };
-
-    let self_pos = self_entity.Position;
-    let self_rot_yaw = self_entity.RotY;
-
-    let (emitter_pos, left_ear_pos, right_ear_pos) =
-        coords_to_sink_positions(packet.block_pos, self_pos, self_rot_yaw);
+    let (left_ear_pos, right_ear_pos) = get_sink_ear_positions();
+    let emitter_pos = [
+        packet.block_pos.X + 0.5,
+        packet.block_pos.Y + 0.5,
+        packet.block_pos.Z + 0.5,
+    ];
 
     RODIO_STREAM.with_borrow_mut(|option| {
         if let Some((_, output_stream_handle, sinks)) = option.as_mut() {
@@ -47,23 +50,43 @@ pub fn handle_packet(packet: Packet) {
 pub fn initialize() {
     let (stream, stream_handle) = OutputStream::try_default().unwrap();
 
+    let mut tick_handler = TickEventHandler::new();
+    tick_handler.on(move |_event| {
+        RODIO_STREAM.with_borrow_mut(move |option| {
+            if let Some((_, _, sinks)) = option.as_mut() {
+                let (left_ear_pos, right_ear_pos) = get_sink_ear_positions();
+                for sink in sinks {
+                    sink.set_left_ear_position(right_ear_pos);
+                    sink.set_right_ear_position(left_ear_pos);
+                }
+            }
+        });
+    });
+
     RODIO_STREAM.with_borrow_mut(move |option| {
         *option = Some((stream, stream_handle, VecDeque::new()));
+    });
+    TICK_HANDLER.with_borrow_mut(move |option| {
+        *option = Some(tick_handler);
     });
 }
 
 pub fn free() {
+    TICK_HANDLER.with_borrow_mut(|option| {
+        drop(option.take());
+    });
     RODIO_STREAM.with_borrow_mut(|option| {
         drop(option.take());
     });
 }
 
-pub fn coords_to_sink_positions(
-    emitter_pos: Vec3,
-    self_pos: Vec3,
-    self_rot_yaw: f32,
-) -> ([f32; 3], [f32; 3], [f32; 3]) {
+fn get_sink_ear_positions() -> ([f32; 3], [f32; 3]) {
     use std::f32::consts::PI;
+
+    let self_entity = unsafe { &*Entities.List[ENTITY_SELF_ID as usize] };
+
+    let self_pos = self_entity.Position;
+    let self_rot_yaw = self_entity.RotY;
 
     let (left_sin, left_cos) = {
         let ratio = self_rot_yaw / 360.0;
@@ -96,7 +119,6 @@ pub fn coords_to_sink_positions(
     right_ear_pos.Z += HEAD_SIZE * right_sin; // Z
 
     (
-        [emitter_pos.X, emitter_pos.Y, emitter_pos.Z],
         [left_ear_pos.X, left_ear_pos.Y, left_ear_pos.Z],
         [right_ear_pos.X, right_ear_pos.Y, right_ear_pos.Z],
     )
