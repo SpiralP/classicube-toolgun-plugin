@@ -6,7 +6,7 @@ use rodio::{Decoder, OutputStream, OutputStreamHandle, SpatialSink};
 
 use super::networking::packet::Packet;
 
-const MAX_SINKS: usize = 10;
+const MAX_SINKS: usize = 100;
 
 const TOOLGUN_BYTES: &[u8] = include_bytes!("../../../sounds/toolgun.wav");
 
@@ -23,9 +23,9 @@ thread_local!(
 pub fn handle_packet(packet: Packet) {
     let (left_ear_pos, right_ear_pos) = get_sink_ear_positions();
     let emitter_pos = [
-        packet.block_pos.X + 0.5,
-        packet.block_pos.Y + 0.5,
-        packet.block_pos.Z + 0.5,
+        (packet.block_pos.X as f32) + 0.5,
+        (packet.block_pos.Y as f32) + 0.5,
+        (packet.block_pos.Z as f32) + 0.5,
     ];
 
     RODIO_STREAM.with_borrow_mut(|option| {

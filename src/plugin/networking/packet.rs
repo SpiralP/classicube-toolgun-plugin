@@ -2,12 +2,12 @@ use std::io::Read;
 
 use anyhow::Result;
 use byteorder::{NetworkEndian, ReadBytesExt};
-use classicube_sys::Vec3;
+use classicube_sys::IVec3;
 
 #[derive(Debug)]
 pub struct Packet {
     pub player_id: u8,
-    pub block_pos: Vec3,
+    pub block_pos: IVec3,
 }
 
 impl Packet {
@@ -19,7 +19,7 @@ impl Packet {
 
         Ok(Self {
             player_id,
-            block_pos: Vec3 {
+            block_pos: IVec3 {
                 X: x.into(),
                 Y: y.into(),
                 Z: z.into(),
