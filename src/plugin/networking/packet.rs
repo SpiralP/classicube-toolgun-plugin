@@ -32,5 +32,5 @@ impl Packet {
 
 pub fn handle_packet(packet: Packet) {
     play_sound(packet.block_pos);
-    create_laser((), packet.block_pos);
+    create_laser(packet.player_id, packet.block_pos);
 }
