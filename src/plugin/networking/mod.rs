@@ -7,9 +7,7 @@ use classicube_helpers::{async_manager, events::net::PluginMessageReceivedEventH
 use classicube_sys::CPE_SendPluginMessage;
 use tracing::{debug, error};
 
-use crate::plugin::sound;
-
-use self::packet::Packet;
+use self::packet::{handle_packet, Packet};
 
 thread_local!(
     static PLUGIN_MESSAGE_HANDLER: RefCell<Option<PluginMessageReceivedEventHandler>> =
@@ -33,7 +31,7 @@ pub fn initialize() {
                 //     error!("processing packet: {:#?}", e);
                 // }
 
-                sound::handle_packet(packet);
+                handle_packet(packet);
             }
 
             Err(e) => {

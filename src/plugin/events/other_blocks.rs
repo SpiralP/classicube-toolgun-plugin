@@ -13,7 +13,7 @@ use classicube_sys::{
 };
 use tracing::debug;
 
-use crate::plugin::{networking::packet::Packet, sound};
+use crate::plugin::networking::packet::{handle_packet, Packet};
 
 thread_local!(
     static SET_BLOCK_ORIGINAL: Cell<Net_Handler> = Default::default();
@@ -144,7 +144,7 @@ unsafe extern "C" fn lighting_on_block_changed_hook(
 
     if old_block == 0 && new_block != 0 {
         debug!(?x, ?y, ?z, ?old_block, ?new_block);
-        sound::handle_packet(Packet {
+        handle_packet(Packet {
             player_id: ENTITY_SELF_ID,
             block_pos: IVec3 { X: x, Y: y, Z: z },
         })

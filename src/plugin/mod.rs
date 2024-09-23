@@ -1,5 +1,6 @@
 pub mod events;
 pub mod networking;
+pub mod render;
 pub mod sound;
 
 use classicube_helpers::async_manager;
@@ -10,6 +11,7 @@ pub fn initialize() {
     debug!("plugin initialize");
 
     async_manager::initialize();
+    render::initialize();
     sound::initialize();
     events::initialize();
 
@@ -43,6 +45,7 @@ pub fn free() {
 
     events::free();
     sound::free();
+    render::free();
 
     // this will stop all tasks immediately
     async_manager::shutdown();

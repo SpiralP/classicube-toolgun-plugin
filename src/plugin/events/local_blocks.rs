@@ -3,11 +3,8 @@ use std::{
     rc::Rc,
 };
 
-use classicube_helpers::{entities::ENTITY_SELF_ID, events::user::BlockChangedEventHandler};
+use classicube_helpers::events::user::BlockChangedEventHandler;
 use classicube_sys::{Blocks, SoundType_SOUND_NONE};
-use tracing::debug;
-
-use crate::plugin::{networking::packet::Packet, sound};
 
 thread_local!(
     static PRE_BLOCK_CHANGED_HANDLER: RefCell<Option<BlockChangedEventHandler>> =
@@ -35,11 +32,11 @@ pub fn initialize() {
                 Blocks.StepSounds[event.block as usize] = SoundType_SOUND_NONE as _;
             }
 
-            debug!(?event);
-            sound::handle_packet(Packet {
-                player_id: ENTITY_SELF_ID,
-                block_pos: event.coords,
-            })
+            // debug!(?event);
+            // sound::handle_packet(Packet {
+            //     player_id: ENTITY_SELF_ID,
+            //     block_pos: event.coords,
+            // })
         }
     });
     pre_block_changed_handler.reorder(0).unwrap();

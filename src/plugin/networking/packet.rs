@@ -4,6 +4,8 @@ use anyhow::Result;
 use byteorder::{NetworkEndian, ReadBytesExt};
 use classicube_sys::IVec3;
 
+use crate::plugin::{render::create_laser, sound::play_sound};
+
 #[derive(Debug)]
 pub struct Packet {
     pub player_id: u8,
@@ -26,4 +28,9 @@ impl Packet {
             },
         })
     }
+}
+
+pub fn handle_packet(packet: Packet) {
+    play_sound(packet.block_pos);
+    create_laser((), packet.block_pos);
 }

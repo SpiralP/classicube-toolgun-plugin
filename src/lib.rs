@@ -1,5 +1,6 @@
 pub mod logger;
 pub mod plugin;
+pub mod textures;
 
 use std::{os::raw::c_int, ptr};
 

@@ -1,10 +1,8 @@
 use std::{cell::RefCell, collections::VecDeque, io::Cursor};
 
 use classicube_helpers::{entities::ENTITY_SELF_ID, tick::TickEventHandler};
-use classicube_sys::Entities;
+use classicube_sys::{Entities, IVec3};
 use rodio::{Decoder, OutputStream, OutputStreamHandle, SpatialSink};
-
-use super::networking::packet::Packet;
 
 const MAX_SINKS: usize = 100;
 
@@ -20,12 +18,12 @@ thread_local!(
     static TICK_HANDLER: RefCell<Option<TickEventHandler>> = Default::default();
 );
 
-pub fn handle_packet(packet: Packet) {
+pub fn play_sound(block_pos: IVec3) {
     let (left_ear_pos, right_ear_pos) = get_sink_ear_positions();
     let emitter_pos = [
-        (packet.block_pos.X as f32) + 0.5,
-        (packet.block_pos.Y as f32) + 0.5,
-        (packet.block_pos.Z as f32) + 0.5,
+        (block_pos.X as f32) + 0.5,
+        (block_pos.Y as f32) + 0.5,
+        (block_pos.Z as f32) + 0.5,
     ];
 
     RODIO_STREAM.with_borrow_mut(|option| {
