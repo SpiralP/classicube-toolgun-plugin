@@ -3,7 +3,7 @@ pub mod drawing;
 pub mod laser;
 pub mod render_hook;
 
-use std::{borrow::Borrow, cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 use classicube_helpers::entities::Entities;
 use classicube_sys::{IVec3, Vec3};
@@ -57,8 +57,13 @@ pub fn create_laser(entity_id: u8, block_pos: IVec3) {
             .unwrap()
             .get_eye_position()
     });
+    let block_pos = Vec3 {
+        X: block_pos.X as f32 + 0.5,
+        Y: block_pos.Y as f32 + 0.5,
+        Z: block_pos.Z as f32 + 0.5,
+    };
     LASERS.with_borrow_mut(|lasers| {
-        let laser = Rc::new(RefCell::new(Laser::new(player_pos, block_pos.to_vec3())));
+        let laser = Rc::new(RefCell::new(Laser::new(player_pos, block_pos)));
         laser.start_rendering();
         lasers.push(laser);
     })

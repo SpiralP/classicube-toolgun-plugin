@@ -33,7 +33,7 @@ pub fn create_texture(block_width: f32) -> OwnedTexture {
 
     let front_texture = OwnedTexture::new(
         context_2d.as_bitmap_mut(),
-        (0, -(height as cc_int16)),
+        (0, -(height as cc_int16 / 2)),
         (width as _, height as _),
         TextureRec {
             U1: 0.0,
