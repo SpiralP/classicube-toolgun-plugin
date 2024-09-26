@@ -2,12 +2,13 @@ pub mod texture;
 
 use std::{f32::consts::PI, os::raw::c_float};
 
+use approx::assert_relative_eq;
 use classicube_sys::{
     Camera, Gfx, Gfx_LoadMatrix, Gfx_SetAlphaBlending, Gfx_SetAlphaTest, Gfx_SetFaceCulling,
-    Gfx_SetFog, Gfx_SetTexturing, Matrix, MatrixType__MATRIX_VIEW, OwnedTexture, Vec3,
-    MATH_DEG2RAD, MATH_RAD2DEG,
+    Gfx_SetFog, Gfx_SetTexturing, Matrix, MatrixType__MATRIX_VIEW, Matrix_Identity, OwnedTexture,
+    Vec3, MATH_DEG2RAD, MATH_RAD2DEG,
 };
-use nalgebra::{center, distance, AbstractRotation, Point3, Rotation3, Vector3};
+use nalgebra::{center, distance, AbstractRotation, Point3, Rotation3, UnitQuaternion, Vector3};
 use texture::create_texture;
 use tracing::debug;
 
@@ -161,4 +162,141 @@ fn test_math() {
         assert_eq!(pitch.to_degrees(), pitch_solution, "iter {i}");
         assert_eq!(yaw.to_degrees(), yaw_solution, "iter {i}");
     }
+}
+
+#[test]
+fn test_math2() {
+    for (pitch, yaw, roll) in [
+        //
+        (0.0f32, 0.0f32, 0.0f32),
+        (90.0, 0.0, 0.0),
+        (0.0, 90.0, 0.0),
+        (0.0, 0.0, 90.0),
+        (90.0, 90.0, 0.0),
+        (90.0, 0.0, 90.0),
+        (45.0, 45.0, 0.0),
+    ] {
+        println!("{pitch} {yaw} {roll}");
+        let (pitch, yaw, roll) = (pitch.to_radians(), yaw.to_radians(), roll.to_radians());
+
+        let r = UnitQuaternion::from_euler_angles(pitch, yaw, roll);
+        let na = r.to_rotation_matrix();
+        println!("{:#?}", na);
+
+        let cc = Matrix_Mul(
+            Matrix_Mul(
+                //
+                Matrix_RotateX(pitch),
+                Matrix_RotateZ(roll),
+            ),
+            Matrix_RotateY(yaw),
+        );
+        println!("{:#?}", cc);
+
+        assert_relative_eq!(na[(0, 0)], cc.row1.X);
+        assert_relative_eq!(na[(1, 0)], cc.row1.Y);
+        assert_relative_eq!(na[(2, 0)], cc.row1.Z);
+        assert_relative_eq!(na[(0, 1)], cc.row2.X);
+        assert_relative_eq!(na[(1, 1)], cc.row2.Y);
+        assert_relative_eq!(na[(2, 1)], cc.row2.Z);
+        assert_relative_eq!(na[(0, 2)], cc.row3.X);
+        assert_relative_eq!(na[(1, 2)], cc.row3.Y);
+        assert_relative_eq!(na[(2, 2)], cc.row3.Z);
+    }
+}
+
+fn Matrix_RotateX(angle: f32) -> Matrix {
+    let cosA = angle.cos();
+    let sinA = angle.sin();
+    let mut result = Matrix_Identity;
+
+    result.row2.Y = cosA;
+    result.row2.Z = sinA;
+    result.row3.Y = -sinA;
+    result.row3.Z = cosA;
+
+    result
+}
+
+fn Matrix_RotateY(angle: f32) -> Matrix {
+    let cosA = angle.cos();
+    let sinA = angle.sin();
+    let mut result = Matrix_Identity;
+
+    result.row1.X = cosA;
+    result.row1.Z = -sinA;
+    result.row3.X = sinA;
+    result.row3.Z = cosA;
+    result
+}
+
+fn Matrix_RotateZ(angle: f32) -> Matrix {
+    let cosA = angle.cos();
+    let sinA = angle.sin();
+    let mut result = Matrix_Identity;
+
+    result.row1.X = cosA;
+    result.row1.Y = sinA;
+    result.row2.X = -sinA;
+    result.row2.Y = cosA;
+    result
+}
+
+fn Matrix_Mul(left: Matrix, right: Matrix) -> Matrix {
+    let lM11 = left.row1.X;
+    let lM12 = left.row1.Y;
+    let lM13 = left.row1.Z;
+    let lM14 = left.row1.W;
+    let lM21 = left.row2.X;
+    let lM22 = left.row2.Y;
+    let lM23 = left.row2.Z;
+    let lM24 = left.row2.W;
+    let lM31 = left.row3.X;
+    let lM32 = left.row3.Y;
+    let lM33 = left.row3.Z;
+    let lM34 = left.row3.W;
+    let lM41 = left.row4.X;
+    let lM42 = left.row4.Y;
+    let lM43 = left.row4.Z;
+    let lM44 = left.row4.W;
+
+    let rM11 = right.row1.X;
+    let rM12 = right.row1.Y;
+    let rM13 = right.row1.Z;
+    let rM14 = right.row1.W;
+    let rM21 = right.row2.X;
+    let rM22 = right.row2.Y;
+    let rM23 = right.row2.Z;
+    let rM24 = right.row2.W;
+    let rM31 = right.row3.X;
+    let rM32 = right.row3.Y;
+    let rM33 = right.row3.Z;
+    let rM34 = right.row3.W;
+    let rM41 = right.row4.X;
+    let rM42 = right.row4.Y;
+    let rM43 = right.row4.Z;
+    let rM44 = right.row4.W;
+
+    let mut result = Matrix_Identity;
+    result.row1.X = (((lM11 * rM11) + (lM12 * rM21)) + (lM13 * rM31)) + (lM14 * rM41);
+    result.row1.Y = (((lM11 * rM12) + (lM12 * rM22)) + (lM13 * rM32)) + (lM14 * rM42);
+    result.row1.Z = (((lM11 * rM13) + (lM12 * rM23)) + (lM13 * rM33)) + (lM14 * rM43);
+    result.row1.W = (((lM11 * rM14) + (lM12 * rM24)) + (lM13 * rM34)) + (lM14 * rM44);
+
+    result.row2.X = (((lM21 * rM11) + (lM22 * rM21)) + (lM23 * rM31)) + (lM24 * rM41);
+    result.row2.Y = (((lM21 * rM12) + (lM22 * rM22)) + (lM23 * rM32)) + (lM24 * rM42);
+    result.row2.Z = (((lM21 * rM13) + (lM22 * rM23)) + (lM23 * rM33)) + (lM24 * rM43);
+    result.row2.W = (((lM21 * rM14) + (lM22 * rM24)) + (lM23 * rM34)) + (lM24 * rM44);
+
+    result.row3.X = (((lM31 * rM11) + (lM32 * rM21)) + (lM33 * rM31)) + (lM34 * rM41);
+    result.row3.Y = (((lM31 * rM12) + (lM32 * rM22)) + (lM33 * rM32)) + (lM34 * rM42);
+    result.row3.Z = (((lM31 * rM13) + (lM32 * rM23)) + (lM33 * rM33)) + (lM34 * rM43);
+    result.row3.W = (((lM31 * rM14) + (lM32 * rM24)) + (lM33 * rM34)) + (lM34 * rM44);
+
+    result.row4.X = (((lM41 * rM11) + (lM42 * rM21)) + (lM43 * rM31)) + (lM44 * rM41);
+    result.row4.Y = (((lM41 * rM12) + (lM42 * rM22)) + (lM43 * rM32)) + (lM44 * rM42);
+    result.row4.Z = (((lM41 * rM13) + (lM42 * rM23)) + (lM43 * rM33)) + (lM44 * rM43);
+    result.row4.W = (((lM41 * rM14) + (lM42 * rM24)) + (lM43 * rM34)) + (lM44 * rM44);
+
+    result
 }

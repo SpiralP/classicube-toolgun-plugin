@@ -233,6 +233,7 @@ name = "classicube-toolgun-plugin"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "approx",
  "byteorder",
  "classicube-helpers",
  "classicube-sys",
