@@ -58,9 +58,9 @@ pub fn create_laser(entity_id: u8, block_pos: IVec3) {
             .get_eye_position()
     });
     let block_pos = Vec3 {
-        X: block_pos.X as f32 + 0.5,
-        Y: block_pos.Y as f32 + 0.5,
-        Z: block_pos.Z as f32 + 0.5,
+        x: block_pos.x as f32 + 0.5,
+        y: block_pos.y as f32 + 0.5,
+        z: block_pos.z as f32 + 0.5,
     };
     LASERS.with_borrow_mut(|lasers| {
         let laser = Rc::new(RefCell::new(Laser::new(player_pos, block_pos)));

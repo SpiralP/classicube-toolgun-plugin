@@ -22,9 +22,9 @@ impl Packet {
         Ok(Self {
             player_id,
             block_pos: IVec3 {
-                X: x.into(),
-                Y: y.into(),
-                Z: z.into(),
+                x: x.into(),
+                y: y.into(),
+                z: z.into(),
             },
         })
     }

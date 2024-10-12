@@ -36,10 +36,10 @@ pub fn create_texture(block_width: f32) -> OwnedTexture {
         (0, -(height as cc_int16 / 2)),
         (width as _, height as _),
         TextureRec {
-            U1: 0.0,
-            V1: 0.0,
-            U2: u2,
-            V2: v2,
+            u1: 0.0,
+            v1: 0.0,
+            u2: u2,
+            v2: v2,
         },
     );
 

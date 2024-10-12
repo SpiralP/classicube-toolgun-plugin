@@ -146,7 +146,7 @@ unsafe extern "C" fn lighting_on_block_changed_hook(
         debug!(?x, ?y, ?z, ?old_block, ?new_block);
         handle_packet(Packet {
             player_id: ENTITY_SELF_ID,
-            block_pos: IVec3 { X: x, Y: y, Z: z },
+            block_pos: IVec3 { x, y, z },
         })
     }
 }
