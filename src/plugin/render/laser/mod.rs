@@ -68,18 +68,27 @@ impl Laser {
         let height = self.texture.as_texture().Height as f32;
         let width = self.texture.as_texture().Width as f32;
 
-        let forward = (end_pos - start_pos).normalize();
-        let eye_dir = (eye_pos - center(&start_pos, &end_pos)).normalize();
+        let dir = (end_pos - start_pos).normalize();
+        let eye_dir = (center(&start_pos, &end_pos) - eye_pos).normalize();
 
         let t = START.with(|s| s.elapsed()).as_secs_f32();
 
-        let right = forward.cross(&Vector3::y_axis());
-        let up = right.cross(&forward);
-        let rotation =
-            Rotation3::from_matrix_unchecked(Matrix3::from_columns(&[right, up, forward]));
+        //
+
+        let right = dir.cross(&Vector3::y_axis());
+        let up = Vector3::y();
+        let rotation = Rotation3::from_matrix_unchecked(Matrix3::from_columns(&[right, up, dir]));
+        let forward = -right.cross(&up);
+
+        let awa = dir.cross(&eye_dir);
+        let x = awa.dot(&forward);
+        let z = awa.dot(&right);
+        let roll = -x.atan2(-z);
 
         let rotation = rotation
-            * Rotation3::from_euler_angles(-90.0f32.to_radians(), -90.0f32.to_radians(), 0.0);
+            * Rotation3::from_euler_angles(-90.0f32.to_radians(), -90.0f32.to_radians(), roll);
+
+        //
 
         let mut transform = identity();
         transform = translate(&transform, &start_pos.coords);
