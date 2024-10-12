@@ -54,17 +54,30 @@ fn get_pixels(path: PathBuf) -> (u32, u32, Vec<PackedCol>) {
 
     assert_eq!(info.bit_depth, png::BitDepth::Eight);
 
+    // TODO fix PackedCol_Make on linux
+    fn color(r: u8, g: u8, b: u8, a: u8) -> PackedCol {
+        #[cfg(not(target_os = "linux"))]
+        {
+            PackedCol_Make(r, g, b, a)
+        }
+
+        #[cfg(target_os = "linux")]
+        {
+            PackedCol_Make(b, g, r, a)
+        }
+    }
+
     (
         info.width,
         info.height,
         match info.color_type {
             png::ColorType::Rgb => bytes
                 .chunks(3)
-                .map(|c| PackedCol_Make(c[0], c[1], c[2], 255))
+                .map(|c| color(c[0], c[1], c[2], 255))
                 .collect(),
             png::ColorType::Rgba => bytes
                 .chunks(4)
-                .map(|c| PackedCol_Make(c[0], c[1], c[2], c[3]))
+                .map(|c| color(c[0], c[1], c[2], c[3]))
                 .collect(),
 
             other => {

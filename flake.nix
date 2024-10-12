@@ -24,6 +24,7 @@
               "^Cargo\.(lock|toml)$"
               "^sounds(/.*)?$"
               "^src(/.*)?$"
+              "^textures(/.*)?$"
             ];
 
             cargoLock = {

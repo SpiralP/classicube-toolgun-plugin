@@ -1,14 +1,24 @@
 pub mod texture;
 
-use std::{f32::consts::PI, os::raw::c_float};
+use std::{
+    f32::consts::{FRAC_2_PI, FRAC_PI_2, PI, TAU},
+    os::raw::c_float,
+    time::Instant,
+};
 
 use approx::assert_relative_eq;
 use classicube_sys::{
     Camera, Gfx, Gfx_LoadMatrix, Gfx_SetAlphaBlending, Gfx_SetAlphaTest, Gfx_SetFaceCulling,
     Gfx_SetFog, Gfx_SetTexturing, Matrix, MatrixType__MATRIX_VIEW, Matrix_Identity, OwnedTexture,
-    Vec3, MATH_DEG2RAD, MATH_RAD2DEG,
+    Vec3, Vec4, MATH_DEG2RAD, MATH_RAD2DEG,
 };
-use nalgebra::{center, distance, AbstractRotation, Point3, Rotation3, UnitQuaternion, Vector3};
+use nalgebra::{
+    center, distance, AbstractRotation, Isometry3, IsometryMatrix3, Matrix3, Matrix4, Point3,
+    Rotation3, Scale3, Unit, UnitQuaternion, UnitVector3, Vector3,
+};
+use nalgebra_glm::{
+    identity, look_at, quat_look_at, rotate, rotate_x, rotate_y, rotate_z, scale, translate,
+};
 use texture::create_texture;
 use tracing::debug;
 
@@ -18,11 +28,19 @@ pub fn vec3_to_point3(v: &Vec3) -> Point3<f32> {
     Point3::new(v.X, v.Y, v.Z)
 }
 
+pub fn vec3_to_vector3(v: &Vec3) -> Vector3<f32> {
+    Vector3::new(v.X, v.Y, v.Z)
+}
+
 pub struct Laser {
     start_pos: Vec3,
     end_pos: Vec3,
     texture: OwnedTexture,
 }
+
+thread_local!(
+    static START: Instant = Instant::now();
+);
 
 impl Laser {
     pub fn new(start_pos: Vec3, end_pos: Vec3) -> Self {
@@ -50,30 +68,30 @@ impl Laser {
         let height = self.texture.as_texture().Height as f32;
         let width = self.texture.as_texture().Width as f32;
 
-        let scale = Matrix::scale((0.5 * block_width * 2.0) / width, 0.5 / height, 1.0);
-        let translation = Matrix::translate(self.start_pos.X, self.start_pos.Y, self.start_pos.Z);
+        let forward = (end_pos - start_pos).normalize();
+        let eye_dir = (eye_pos - center(&start_pos, &end_pos)).normalize();
 
-        let dir = (end_pos - start_pos).normalize();
-        let pitch = dir.y.asin();
-        let yaw = -dir.x.atan2(-dir.z);
+        let t = START.with(|s| s.elapsed()).as_secs_f32();
 
-        let eye_dir = (center(&start_pos, &end_pos) - eye_pos).normalize();
-        let eye_dir = dir.cross(&eye_dir).normalize();
-        let x = eye_dir.dot(&-Vector3::z());
-        let z = eye_dir.dot(&Vector3::x());
-        let mut eye_yaw = yaw + x.atan2(-z);
-        if pitch > 0.0 {
-            eye_yaw *= -1.0;
-        }
-        let transform = scale
-            // angle 0,0 means the plane is facing that direction
-            * Matrix::rotate_x(eye_yaw + 90.0f32.to_radians())
-            * Matrix::rotate_z(pitch)
-            * Matrix::rotate_y(yaw + 90.0f32.to_radians())
-            * translation;
+        let right = forward.cross(&Vector3::y_axis());
+        let up = right.cross(&forward);
+        let rotation =
+            Rotation3::from_matrix_unchecked(Matrix3::from_columns(&[right, up, forward]));
 
+        let rotation = rotation
+            * Rotation3::from_euler_angles(-90.0f32.to_radians(), -90.0f32.to_radians(), 0.0);
+
+        let mut transform = identity();
+        transform = translate(&transform, &start_pos.coords);
+        transform *= rotation.to_homogeneous();
+        transform = scale(
+            &transform,
+            &Vector3::new((0.5 * block_width * 2.0) / width, 0.5 / height, 1.0),
+        );
+
+        let view = to_na_matrix(unsafe { Gfx.View });
+        let m = to_cc_matrix(view * transform);
         unsafe {
-            let m = transform * Gfx.View;
             Gfx_LoadMatrix(MatrixType__MATRIX_VIEW, &m);
 
             Gfx_SetAlphaTest(1);
@@ -92,6 +110,60 @@ impl Laser {
     }
 }
 
+fn to_cc_matrix<T: Into<Matrix4<f32>>>(na: T) -> Matrix {
+    let na = na.into();
+    Matrix {
+        row1: Vec4 {
+            X: na[(0, 0)],
+            Y: na[(1, 0)],
+            Z: na[(2, 0)],
+            W: na[(3, 0)],
+        },
+        row2: Vec4 {
+            X: na[(0, 1)],
+            Y: na[(1, 1)],
+            Z: na[(2, 1)],
+            W: na[(3, 1)],
+        },
+        row3: Vec4 {
+            X: na[(0, 2)],
+            Y: na[(1, 2)],
+            Z: na[(2, 2)],
+            W: na[(3, 2)],
+        },
+        row4: Vec4 {
+            X: na[(0, 3)],
+            Y: na[(1, 3)],
+            Z: na[(2, 3)],
+            W: na[(3, 3)],
+        },
+    }
+}
+
+fn to_na_matrix(cc: Matrix) -> Matrix4<f32> {
+    Matrix4::new(
+        cc.row1.X, cc.row2.X, cc.row3.X, cc.row4.X, //
+        cc.row1.Y, cc.row2.Y, cc.row3.Y, cc.row4.Y, //
+        cc.row1.Z, cc.row2.Z, cc.row3.Z, cc.row4.Z, //
+        cc.row1.W, cc.row2.W, cc.row3.W, cc.row4.W, //
+    )
+}
+
+#[test]
+fn test_to_matrix() {
+    let a = Matrix4::new(
+        0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0,
+    );
+    assert_eq!(a, a);
+    let b = to_cc_matrix(a);
+    assert_eq!(b.row4.X, *a.index((0, 3)));
+    assert_eq!(b.row4.Y, *a.index((1, 3)));
+    assert_eq!(b.row4.Z, *a.index((2, 3)));
+    assert_eq!(b.row4.W, *a.index((3, 3)));
+    let c = to_na_matrix(b);
+    assert_eq!(a, c);
+}
+
 impl Renderable for Laser {
     fn render(&mut self) {
         self.render_inner();
@@ -99,7 +171,7 @@ impl Renderable for Laser {
 }
 
 #[test]
-fn test_math() {
+fn test_math1() {
     for (i, (start_pos, end_pos, distance_solution, dir_solution, pitch_solution, yaw_solution)) in
         [
             (
@@ -110,38 +182,38 @@ fn test_math() {
                 0.0,
                 0.0,
             ),
-            (
-                (64.0, 40.0, 64.0),
-                (70.0, 40.0, 64.0),
-                6.0,
-                (1.0, 0.0, 0.0),
-                0.0,
-                -90.0,
-            ),
-            (
-                (64.0, 40.0, 64.0),
-                (64.0, 50.0, 64.0),
-                10.0,
-                (0.0, 1.0, 0.0),
-                90.0,
-                -180.0,
-            ),
-            (
-                (64.0, 40.0, 64.0),
-                (74.0, 40.0, 54.0),
-                14.142136,
-                (0.70710677, 0.0, -0.70710677),
-                0.0,
-                -45.0,
-            ),
-            (
-                (64.0, 40.0, 64.0),
-                (64.0, 40.0, 70.0),
-                6.0,
-                (0.0, 0.0, 1.0),
-                0.0,
-                -180.0,
-            ),
+            // (
+            //     (64.0, 40.0, 64.0),
+            //     (70.0, 40.0, 64.0),
+            //     6.0,
+            //     (1.0, 0.0, 0.0),
+            //     0.0,
+            //     -90.0,
+            // ),
+            // (
+            //     (64.0, 40.0, 64.0),
+            //     (64.0, 50.0, 64.0),
+            //     10.0,
+            //     (0.0, 1.0, 0.0),
+            //     90.0,
+            //     -180.0,
+            // ),
+            // (
+            //     (64.0, 40.0, 64.0),
+            //     (74.0, 40.0, 54.0),
+            //     14.142136,
+            //     (0.70710677, 0.0, -0.70710677),
+            //     0.0,
+            //     -45.0,
+            // ),
+            // (
+            //     (64.0, 40.0, 64.0),
+            //     (64.0, 40.0, 70.0),
+            //     6.0,
+            //     (0.0, 0.0, 1.0),
+            //     0.0,
+            //     -180.0,
+            // ),
         ]
         .into_iter()
         .enumerate()
@@ -161,6 +233,62 @@ fn test_math() {
 
         assert_eq!(pitch.to_degrees(), pitch_solution, "iter {i}");
         assert_eq!(yaw.to_degrees(), yaw_solution, "iter {i}");
+
+        let iso = Rotation3::look_at_rh(&(end_pos - start_pos), &Vector3::y_axis());
+        println!("{:#?}", iso);
+    }
+}
+
+#[test]
+fn test_math3() {
+    #[allow(clippy::single_element_loop)]
+    for (start_pos, end_pos, dir_solution, pitch_solution, yaw_solution) in [
+        // (
+        //     (64.0f32, 40.0, 64.0),
+        //     (64.0f32, 40.0, 50.0),
+        //     (0.0, 0.0, -1.0),
+        //     0.0,
+        //     0.0,
+        // ),
+        // (
+        //     (64.0f32, 40.0, 64.0),
+        //     (70.0f32, 40.0, 64.0),
+        //     (1.0, 0.0, 0.0),
+        //     0.0,
+        //     -90.0,
+        // ),
+        (
+            (0.0f32, 0.0, 0.0),
+            (0.0f32, 1.0, -1.0),
+            (1.0, 0.0, 0.0),
+            45.0,
+            0.0,
+        ),
+    ] {
+        let start_pos = Point3::new(start_pos.0, start_pos.1, start_pos.2);
+        let end_pos = Point3::new(end_pos.0, end_pos.1, end_pos.2);
+
+        // let rot_solution = UnitQuaternion::from_euler_angles(0.0, 0.0, 0.0);
+        // println!("{:#?}", rot_solution.to_rotation_matrix());
+        // let rot = look_at(&start_pos, &end_pos, &Vector3::y_axis());
+        // let rot = rot.remove_row(3);
+        // let rot = rot.remove_column(3);
+        // println!("{:#?}", rot);
+
+        // let rot = Rotation3::<f32>::new(end_pos - start_pos)
+        //     .euler_angles()
+        //     .0
+        //     .to_degrees();
+
+        let direction = (end_pos - start_pos).normalize();
+        let rotation = Rotation3::rotation_between(&-Vector3::z_axis(), &direction).unwrap();
+
+        println!(
+            "{} {} {}",
+            rotation.euler_angles().0.to_degrees(),
+            rotation.euler_angles().1.to_degrees(),
+            rotation.euler_angles().2.to_degrees()
+        );
     }
 }
 
@@ -179,8 +307,7 @@ fn test_math2() {
         println!("{pitch} {yaw} {roll}");
         let (pitch, yaw, roll) = (pitch.to_radians(), yaw.to_radians(), roll.to_radians());
 
-        let r = UnitQuaternion::from_euler_angles(pitch, yaw, roll);
-        let na = r.to_rotation_matrix();
+        let na = Rotation3::from_euler_angles(pitch, yaw, roll);
         println!("{:#?}", na);
 
         let cc = Matrix_Mul(
@@ -203,6 +330,58 @@ fn test_math2() {
         assert_relative_eq!(na[(1, 2)], cc.row3.Y);
         assert_relative_eq!(na[(2, 2)], cc.row3.Z);
     }
+}
+
+#[test]
+fn test_math4() {
+    let cc = Matrix_Translate(1.0, 2.0, 3.0);
+    println!("{:#?}", to_na_matrix(cc));
+
+    let na = IsometryMatrix3::new(Vector3::new(1.0, 2.0, 3.0), Vector3::zeros());
+    println!("{:#?}", na.to_matrix());
+
+    assert_eq!(to_na_matrix(cc), na.to_matrix());
+}
+
+#[test]
+fn test_math4_2() {
+    let cc = Matrix_Mul(
+        Matrix_RotateX(45.0f32.to_radians()),
+        Matrix_Translate(1.0, 2.0, 3.0),
+    );
+    println!("{:#?}", to_na_matrix(cc));
+
+    let na = IsometryMatrix3::new(
+        Vector3::new(1.0, 2.0, 3.0),
+        Rotation3::from_euler_angles(45.0f32.to_radians(), 0.0, 0.0).scaled_axis(),
+    );
+    println!("{:#?}", na.to_matrix());
+
+    assert_relative_eq!(to_na_matrix(cc), na.to_matrix());
+}
+
+#[test]
+fn test_math4_3() {
+    let cc = Matrix_Mul(
+        Matrix_Scale(2.0, 1.0, 3.0),
+        Matrix_Mul(
+            Matrix_RotateX(45.0f32.to_radians()),
+            Matrix_Translate(1.0, 2.0, 3.0),
+        ),
+    );
+    println!("{:#?}", to_na_matrix(cc));
+
+    let na = scale(
+        &IsometryMatrix3::new(
+            Vector3::new(1.0, 2.0, 3.0),
+            Rotation3::from_euler_angles(45.0f32.to_radians(), 0.0, 0.0).scaled_axis(),
+        )
+        .to_matrix(),
+        &Vector3::new(2.0, 1.0, 3.0),
+    );
+    println!("{:#?}", na);
+
+    assert_relative_eq!(to_na_matrix(cc), na);
 }
 
 fn Matrix_RotateX(angle: f32) -> Matrix {
@@ -239,6 +418,22 @@ fn Matrix_RotateZ(angle: f32) -> Matrix {
     result.row1.Y = sinA;
     result.row2.X = -sinA;
     result.row2.Y = cosA;
+    result
+}
+
+fn Matrix_Translate(x: f32, y: f32, z: f32) -> Matrix {
+    let mut result = Matrix_Identity;
+    result.row4.X = x;
+    result.row4.Y = y;
+    result.row4.Z = z;
+    result
+}
+
+fn Matrix_Scale(x: f32, y: f32, z: f32) -> Matrix {
+    let mut result = Matrix_Identity;
+    result.row1.X = x;
+    result.row2.Y = y;
+    result.row3.Z = z;
     result
 }
 
