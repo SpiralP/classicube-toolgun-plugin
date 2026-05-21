@@ -2,16 +2,15 @@ use std::{cell::RefCell, collections::VecDeque, io::Cursor};
 
 use classicube_helpers::{entities::ENTITY_SELF_ID, tick::TickEventHandler};
 use classicube_sys::{Entities, IVec3};
-use rodio::{Decoder, OutputStream, OutputStreamHandle, SpatialSink};
+use rodio::{Decoder, DeviceSinkBuilder, MixerDeviceSink, SpatialPlayer};
 
 const MAX_SINKS: usize = 100;
 
 const TOOLGUN_BYTES: &[u8] = include_bytes!("../../../sounds/toolgun.wav");
 
 thread_local!(
-    static RODIO_STREAM: RefCell<
-        Option<(OutputStream, OutputStreamHandle, VecDeque<SpatialSink>)>,
-    > = Default::default();
+    static RODIO_STREAM: RefCell<Option<(MixerDeviceSink, VecDeque<SpatialPlayer>)>> =
+        Default::default();
 );
 
 thread_local!(
@@ -27,15 +26,14 @@ pub fn play_sound(block_pos: IVec3) {
     ];
 
     RODIO_STREAM.with_borrow_mut(|option| {
-        if let Some((_, output_stream_handle, sinks)) = option.as_mut() {
+        if let Some((device_sink, sinks)) = option.as_mut() {
             let source = Decoder::new(Cursor::new(TOOLGUN_BYTES)).unwrap();
-            let sink = SpatialSink::try_new(
-                output_stream_handle,
+            let sink = SpatialPlayer::connect_new(
+                device_sink.mixer(),
                 emitter_pos,
                 left_ear_pos,
                 right_ear_pos,
-            )
-            .unwrap();
+            );
             sink.append(source);
             sinks.push_back(sink);
             if sinks.len() == MAX_SINKS {
@@ -46,12 +44,12 @@ pub fn play_sound(block_pos: IVec3) {
 }
 
 pub fn initialize() {
-    let (stream, stream_handle) = OutputStream::try_default().unwrap();
+    let device_sink = DeviceSinkBuilder::open_default_sink().unwrap();
 
     let mut tick_handler = TickEventHandler::new();
     tick_handler.on(move |_event| {
         RODIO_STREAM.with_borrow_mut(move |option| {
-            if let Some((_, _, sinks)) = option.as_mut() {
+            if let Some((_, sinks)) = option.as_mut() {
                 let (left_ear_pos, right_ear_pos) = get_sink_ear_positions();
                 for sink in sinks {
                     sink.set_left_ear_position(right_ear_pos);
@@ -62,7 +60,7 @@ pub fn initialize() {
     });
 
     RODIO_STREAM.with_borrow_mut(move |option| {
-        *option = Some((stream, stream_handle, VecDeque::new()));
+        *option = Some((device_sink, VecDeque::new()));
     });
     TICK_HANDLER.with_borrow_mut(move |option| {
         *option = Some(tick_handler);
