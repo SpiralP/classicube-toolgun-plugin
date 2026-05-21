@@ -10,6 +10,10 @@ thread_local!(
 );
 
 thread_local!(
+    static ORIGINAL_VTABLE: Cell<Option<*const EntityVTABLE>> = Default::default();
+);
+
+thread_local!(
     static VTABLE: Cell<Option<Pin<Box<EntityVTABLE>>>> = Default::default();
 );
 
@@ -28,8 +32,10 @@ extern "C" fn hook(local_player_entity: *mut Entity, delta: f32, t: f32) {
 
 pub fn initialize() {
     let me = unsafe { &mut *Entities.List[ENTITIES_SELF_ID as usize] };
-    let v_table = unsafe { &*me.VTABLE };
+    let original_vtable_ptr = me.VTABLE;
+    let v_table = unsafe { &*original_vtable_ptr };
 
+    ORIGINAL_VTABLE.set(Some(original_vtable_ptr));
     ORIGINAL_FN.with(|cell| {
         cell.set(v_table.RenderModel);
     });
@@ -50,5 +56,21 @@ pub fn initialize() {
 }
 
 pub fn free() {
-    // self entity doesn't exist during free; no need to cleanup
+    // Restore the entity's VTABLE pointer FIRST so it no longer references the
+    // boxed hooked table, then drop the box.
+    let entity_ptr = unsafe { Entities.List[ENTITIES_SELF_ID as usize] };
+    if !entity_ptr.is_null() {
+        if let Some(original) = ORIGINAL_VTABLE.take() {
+            let me = unsafe { &mut *entity_ptr };
+            me.VTABLE = original;
+        }
+    } else {
+        ORIGINAL_VTABLE.set(None);
+    }
+
+    VTABLE.with(|cell| {
+        cell.take();
+    });
+    ORIGINAL_FN.with(|cell| cell.set(None));
+    renderable::clear();
 }

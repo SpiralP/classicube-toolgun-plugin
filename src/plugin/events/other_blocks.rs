@@ -155,6 +155,8 @@ pub fn free() {
     TICK_HANDLER.with_borrow_mut(|option| {
         drop(option.take());
     });
+    QUEUE.with_borrow_mut(|queue| queue.clear());
+    NEXT_TIME.set(None);
     unsafe {
         Protocol.Handlers[OPCODE__OPCODE_BULK_BLOCK_UPDATE as usize] =
             BULK_BLOCK_UPDATE_ORIGINAL.take();

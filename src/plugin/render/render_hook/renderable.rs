@@ -44,6 +44,10 @@ where
     }
 }
 
+pub fn clear() {
+    with_renderables(|renderables| renderables.clear());
+}
+
 pub fn render_all() {
     with_renderables(|renderables| {
         renderables.retain(|renderable| {
