@@ -42,8 +42,8 @@ thread_local!(
                 x: c_int,
                 y: c_int,
                 z: c_int,
-                oldBlock: BlockID,
-                newBlock: BlockID,
+                old_block: BlockID,
+                new_block: BlockID,
             ),
         >,
     > = Default::default();

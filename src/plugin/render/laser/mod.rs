@@ -1,26 +1,18 @@
 pub mod texture;
 
-use std::{
-    f32::consts::{FRAC_2_PI, FRAC_PI_2, PI, TAU},
-    os::raw::c_float,
-    time::Instant,
-};
-
+#[cfg(test)]
 use approx::assert_relative_eq;
+#[cfg(test)]
+use classicube_sys::Matrix_Identity;
 use classicube_sys::{
-    Camera, Gfx, Gfx_LoadMatrix, Gfx_SetAlphaBlending, Gfx_SetAlphaTest, Gfx_SetFaceCulling,
-    Gfx_SetFog, Gfx_SetTexturing, MATH_DEG2RAD, MATH_RAD2DEG, Matrix, Matrix_Identity,
+    Camera, Gfx, Gfx_LoadMatrix, Gfx_SetAlphaTest, Gfx_SetFaceCulling, Gfx_SetTexturing, Matrix,
     MatrixType__MATRIX_VIEW, OwnedTexture, Vec3, Vec4,
 };
-use nalgebra::{
-    AbstractRotation, Isometry3, IsometryMatrix3, Matrix3, Matrix4, Point3, Rotation3, Scale3,
-    Unit, UnitQuaternion, UnitVector3, Vector3, center, distance,
-};
-use nalgebra_glm::{
-    identity, look_at, quat_look_at, rotate, rotate_x, rotate_y, rotate_z, scale, translate,
-};
+#[cfg(test)]
+use nalgebra::IsometryMatrix3;
+use nalgebra::{Matrix3, Matrix4, Point3, Rotation3, Vector3, center, distance};
+use nalgebra_glm::{identity, scale, translate};
 use texture::create_texture;
-use tracing::debug;
 
 use super::{context::vertex_buffer::Texture_Render, render_hook::renderable::Renderable};
 
@@ -37,10 +29,6 @@ pub struct Laser {
     end_pos: Vec3,
     texture: OwnedTexture,
 }
-
-thread_local!(
-    static START: Instant = Instant::now();
-);
 
 impl Laser {
     pub fn new(start_pos: Vec3, end_pos: Vec3) -> Self {
@@ -70,8 +58,6 @@ impl Laser {
 
         let dir = (end_pos - start_pos).normalize();
         let eye_dir = (center(&start_pos, &end_pos) - eye_pos).normalize();
-
-        let t = START.with(|s| s.elapsed()).as_secs_f32();
 
         //
 
@@ -250,8 +236,8 @@ fn test_math1() {
 
 #[test]
 fn test_math3() {
-    #[allow(clippy::single_element_loop)]
-    for (start_pos, end_pos, dir_solution, pitch_solution, yaw_solution) in [
+    #[expect(clippy::single_element_loop, reason = "preserves test scaffolding")]
+    for (start_pos, end_pos, _dir_solution, _pitch_solution, _yaw_solution) in [
         // (
         //     (64.0f32, 40.0, 64.0),
         //     (64.0f32, 40.0, 50.0),
@@ -393,6 +379,11 @@ fn test_math4_3() {
     assert_relative_eq!(to_na_matrix(cc), na);
 }
 
+#[cfg(test)]
+#[expect(
+    non_snake_case,
+    reason = "mirrors ClassiCube C API names for cross-referencing"
+)]
 fn Matrix_RotateX(angle: f32) -> Matrix {
     let cosA = angle.cos();
     let sinA = angle.sin();
@@ -406,6 +397,11 @@ fn Matrix_RotateX(angle: f32) -> Matrix {
     result
 }
 
+#[cfg(test)]
+#[expect(
+    non_snake_case,
+    reason = "mirrors ClassiCube C API names for cross-referencing"
+)]
 fn Matrix_RotateY(angle: f32) -> Matrix {
     let cosA = angle.cos();
     let sinA = angle.sin();
@@ -418,6 +414,11 @@ fn Matrix_RotateY(angle: f32) -> Matrix {
     result
 }
 
+#[cfg(test)]
+#[expect(
+    non_snake_case,
+    reason = "mirrors ClassiCube C API names for cross-referencing"
+)]
 fn Matrix_RotateZ(angle: f32) -> Matrix {
     let cosA = angle.cos();
     let sinA = angle.sin();
@@ -430,6 +431,11 @@ fn Matrix_RotateZ(angle: f32) -> Matrix {
     result
 }
 
+#[cfg(test)]
+#[expect(
+    non_snake_case,
+    reason = "mirrors ClassiCube C API names for cross-referencing"
+)]
 fn Matrix_Translate(x: f32, y: f32, z: f32) -> Matrix {
     let mut result = Matrix_Identity;
     result.row4.x = x;
@@ -438,6 +444,11 @@ fn Matrix_Translate(x: f32, y: f32, z: f32) -> Matrix {
     result
 }
 
+#[cfg(test)]
+#[expect(
+    non_snake_case,
+    reason = "mirrors ClassiCube C API names for cross-referencing"
+)]
 fn Matrix_Scale(x: f32, y: f32, z: f32) -> Matrix {
     let mut result = Matrix_Identity;
     result.row1.x = x;
@@ -446,6 +457,11 @@ fn Matrix_Scale(x: f32, y: f32, z: f32) -> Matrix {
     result
 }
 
+#[cfg(test)]
+#[expect(
+    non_snake_case,
+    reason = "mirrors ClassiCube C API names for cross-referencing"
+)]
 fn Matrix_Mul(left: Matrix, right: Matrix) -> Matrix {
     let lM11 = left.row1.x;
     let lM12 = left.row1.y;
