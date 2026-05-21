@@ -13,7 +13,10 @@ use classicube_sys::{
 };
 use tracing::debug;
 
-use crate::plugin::networking::packet::{Packet, handle_packet};
+use crate::plugin::{
+    module::Module,
+    networking::packet::{Packet, handle_packet},
+};
 
 thread_local!(
     static SET_BLOCK_ORIGINAL: Cell<Net_Handler> = Default::default();
@@ -21,10 +24,6 @@ thread_local!(
 
 thread_local!(
     static BULK_BLOCK_UPDATE_ORIGINAL: Cell<Net_Handler> = Default::default();
-);
-
-thread_local!(
-    static TICK_HANDLER: RefCell<Option<TickEventHandler>> = Default::default();
 );
 
 thread_local!(
@@ -49,58 +48,83 @@ thread_local!(
     > = Default::default();
 );
 
-pub fn initialize() {
-    let set_block_original = unsafe { Protocol.Handlers[OPCODE__OPCODE_SET_BLOCK as usize] };
-    unsafe {
-        Protocol.Handlers[OPCODE__OPCODE_SET_BLOCK as usize] = Some(set_block_hook);
-    }
+pub struct OtherBlocksModule {
+    _tick_handler: TickEventHandler,
+}
 
-    let bulk_block_update_original =
-        unsafe { Protocol.Handlers[OPCODE__OPCODE_BULK_BLOCK_UPDATE as usize] };
-    unsafe {
-        Protocol.Handlers[OPCODE__OPCODE_BULK_BLOCK_UPDATE as usize] = Some(bulk_block_update_hook);
-    }
-
-    let mut tick_handler = TickEventHandler::new();
-    tick_handler.on(move |_event| {
-        if let Some(next_time) = NEXT_TIME.get() {
-            let now = Instant::now();
-            if now < next_time {
-                return;
-            }
+impl OtherBlocksModule {
+    pub fn init() -> Self {
+        let set_block_original = unsafe { Protocol.Handlers[OPCODE__OPCODE_SET_BLOCK as usize] };
+        unsafe {
+            Protocol.Handlers[OPCODE__OPCODE_SET_BLOCK as usize] = Some(set_block_hook);
         }
 
-        // make every grouping take X seconds
-        QUEUE.with_borrow_mut(|queue| {
-            if let Some((callback, mut data)) = queue.pop_front() {
+        let bulk_block_update_original =
+            unsafe { Protocol.Handlers[OPCODE__OPCODE_BULK_BLOCK_UPDATE as usize] };
+        unsafe {
+            Protocol.Handlers[OPCODE__OPCODE_BULK_BLOCK_UPDATE as usize] =
+                Some(bulk_block_update_hook);
+        }
+
+        let mut tick_handler = TickEventHandler::new();
+        tick_handler.on(move |_event| {
+            if let Some(next_time) = NEXT_TIME.get() {
                 let now = Instant::now();
-                NEXT_TIME.set(Some(
-                    now + Duration::from_millis((50.0 - (queue.len() as f32)).max(10.0) as u64),
-                ));
-
-                debug!(?callback, ?data, "real");
-                if let Some(callback) = callback {
-                    unsafe {
-                        callback(data.as_mut_ptr());
-                    }
+                if now < next_time {
+                    return;
                 }
-            } else {
-                NEXT_TIME.set(None);
             }
+
+            // make every grouping take X seconds
+            QUEUE.with_borrow_mut(|queue| {
+                if let Some((callback, mut data)) = queue.pop_front() {
+                    let now = Instant::now();
+                    NEXT_TIME.set(Some(
+                        now + Duration::from_millis((50.0 - (queue.len() as f32)).max(10.0) as u64),
+                    ));
+
+                    debug!(?callback, ?data, "real");
+                    if let Some(callback) = callback {
+                        unsafe {
+                            callback(data.as_mut_ptr());
+                        }
+                    }
+                } else {
+                    NEXT_TIME.set(None);
+                }
+            });
         });
-    });
 
-    let lighting_on_block_changed_original = unsafe { Lighting.OnBlockChanged };
-    unsafe {
-        Lighting.OnBlockChanged = Some(lighting_on_block_changed_hook);
+        let lighting_on_block_changed_original = unsafe { Lighting.OnBlockChanged };
+        unsafe {
+            Lighting.OnBlockChanged = Some(lighting_on_block_changed_hook);
+        }
+
+        LIGHTING_ON_BLOCK_CHANGED_ORIGINAL.set(lighting_on_block_changed_original);
+        SET_BLOCK_ORIGINAL.set(set_block_original);
+        BULK_BLOCK_UPDATE_ORIGINAL.set(bulk_block_update_original);
+
+        Self {
+            _tick_handler: tick_handler,
+        }
     }
+}
 
-    LIGHTING_ON_BLOCK_CHANGED_ORIGINAL.set(lighting_on_block_changed_original);
-    SET_BLOCK_ORIGINAL.set(set_block_original);
-    BULK_BLOCK_UPDATE_ORIGINAL.set(bulk_block_update_original);
-    TICK_HANDLER.with_borrow_mut(move |option| {
-        *option = Some(tick_handler);
-    });
+impl Module for OtherBlocksModule {
+    fn free(&mut self) {
+        QUEUE.with_borrow_mut(|queue| queue.clear());
+        NEXT_TIME.set(None);
+        unsafe {
+            Protocol.Handlers[OPCODE__OPCODE_BULK_BLOCK_UPDATE as usize] =
+                BULK_BLOCK_UPDATE_ORIGINAL.take();
+        }
+        unsafe {
+            Protocol.Handlers[OPCODE__OPCODE_SET_BLOCK as usize] = SET_BLOCK_ORIGINAL.take();
+        }
+        unsafe {
+            Lighting.OnBlockChanged = LIGHTING_ON_BLOCK_CHANGED_ORIGINAL.take();
+        }
+    }
 }
 
 extern "C" fn set_block_hook(data: *mut cc_uint8) {
@@ -148,23 +172,5 @@ unsafe extern "C" fn lighting_on_block_changed_hook(
             player_id: ENTITY_SELF_ID,
             block_pos: IVec3 { x, y, z },
         })
-    }
-}
-
-pub fn free() {
-    TICK_HANDLER.with_borrow_mut(|option| {
-        drop(option.take());
-    });
-    QUEUE.with_borrow_mut(|queue| queue.clear());
-    NEXT_TIME.set(None);
-    unsafe {
-        Protocol.Handlers[OPCODE__OPCODE_BULK_BLOCK_UPDATE as usize] =
-            BULK_BLOCK_UPDATE_ORIGINAL.take();
-    }
-    unsafe {
-        Protocol.Handlers[OPCODE__OPCODE_SET_BLOCK as usize] = SET_BLOCK_ORIGINAL.take();
-    }
-    unsafe {
-        Lighting.OnBlockChanged = LIGHTING_ON_BLOCK_CHANGED_ORIGINAL.take();
     }
 }

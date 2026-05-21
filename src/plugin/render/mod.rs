@@ -1,5 +1,4 @@
 pub mod context;
-pub mod drawing;
 pub mod laser;
 pub mod render_hook;
 
@@ -9,39 +8,57 @@ use classicube_helpers::entities::Entities;
 use classicube_sys::{IVec3, Vec3};
 use tracing::debug;
 
-use self::laser::Laser;
-use crate::plugin::render::render_hook::renderable::StartStopRendering;
+use self::{
+    context::ContextModule,
+    laser::Laser,
+    render_hook::{RenderHookModule, renderable::StartStopRendering},
+};
+use crate::plugin::module::Module;
 
 thread_local!(
     static ENTITIES: RefCell<Option<Entities>> = Default::default();
 );
 
-pub fn initialize() {
-    context::initialize();
-    render_hook::initialize();
-    drawing::initialize();
-
-    ENTITIES.with_borrow_mut(|option| {
-        let entities = Entities::new();
-        *option = Some(entities);
-    });
-}
-
-pub fn free() {
-    ENTITIES.with_borrow_mut(|option| {
-        drop(option.take());
-    });
-    LASERS.with_borrow_mut(|lasers| {
-        lasers.clear();
-    });
-    drawing::free();
-    render_hook::free();
-    context::free();
-}
-
 thread_local!(
     static LASERS: RefCell<Vec<Rc<RefCell<Laser>>>> = Default::default();
 );
+
+pub struct RenderModule {
+    context_module: ContextModule,
+    render_hook_module: RenderHookModule,
+}
+
+impl RenderModule {
+    pub fn init() -> Self {
+        let context_module = ContextModule::init();
+        let render_hook_module = RenderHookModule::init();
+
+        ENTITIES.with_borrow_mut(|option| {
+            let entities = Entities::new();
+            *option = Some(entities);
+        });
+
+        Self {
+            context_module,
+            render_hook_module,
+        }
+    }
+}
+
+impl Module for RenderModule {
+    fn children(&mut self) -> Vec<&mut dyn Module> {
+        vec![&mut self.context_module, &mut self.render_hook_module]
+    }
+
+    fn free(&mut self) {
+        ENTITIES.with_borrow_mut(|option| {
+            drop(option.take());
+        });
+        LASERS.with_borrow_mut(|lasers| {
+            lasers.clear();
+        });
+    }
+}
 
 #[tracing::instrument]
 pub fn create_laser(entity_id: u8, block_pos: IVec3) {

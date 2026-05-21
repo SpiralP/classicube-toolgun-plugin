@@ -1,46 +1,38 @@
 pub mod vertex_buffer;
 
-use std::cell::RefCell;
-
 use classicube_helpers::events::gfx::{ContextLostEventHandler, ContextRecreatedEventHandler};
 
-thread_local!(
-    static CONTEXT_RECREATED_HANDLER: RefCell<Option<ContextRecreatedEventHandler>> =
-        Default::default();
-);
-thread_local!(
-    static CONTEXT_LOST_HANDLER: RefCell<Option<ContextLostEventHandler>> = Default::default();
-);
+use crate::plugin::module::Module;
 
-pub fn initialize() {
-    CONTEXT_RECREATED_HANDLER.with_borrow_mut(|option| {
-        let mut handler = ContextRecreatedEventHandler::new();
-        handler.on(|_| {
+pub struct ContextModule {
+    _context_recreated_handler: ContextRecreatedEventHandler,
+    _context_lost_handler: ContextLostEventHandler,
+}
+
+impl ContextModule {
+    pub fn init() -> Self {
+        let mut context_recreated_handler = ContextRecreatedEventHandler::new();
+        context_recreated_handler.on(|_| {
             vertex_buffer::context_recreated();
         });
 
-        *option = Some(handler);
-    });
-
-    CONTEXT_LOST_HANDLER.with_borrow_mut(|option| {
-        let mut handler = ContextLostEventHandler::new();
-        handler.on(|_| {
+        let mut context_lost_handler = ContextLostEventHandler::new();
+        context_lost_handler.on(|_| {
             vertex_buffer::context_lost();
         });
 
-        *option = Some(handler);
-    });
+        // start with context created
+        vertex_buffer::context_recreated();
 
-    // start with context created
-    vertex_buffer::context_recreated();
+        Self {
+            _context_recreated_handler: context_recreated_handler,
+            _context_lost_handler: context_lost_handler,
+        }
+    }
 }
 
-pub fn free() {
-    CONTEXT_RECREATED_HANDLER.with_borrow_mut(|option| {
-        drop(option.take());
-    });
-    CONTEXT_LOST_HANDLER.with_borrow_mut(|option| {
-        drop(option.take());
-    });
-    vertex_buffer::context_lost();
+impl Module for ContextModule {
+    fn free(&mut self) {
+        vertex_buffer::context_lost();
+    }
 }

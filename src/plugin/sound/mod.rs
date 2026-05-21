@@ -4,6 +4,8 @@ use classicube_helpers::{entities::ENTITY_SELF_ID, tick::TickEventHandler};
 use classicube_sys::{Entities, IVec3};
 use rodio::{Decoder, DeviceSinkBuilder, MixerDeviceSink, SpatialPlayer};
 
+use crate::plugin::module::Module;
+
 const MAX_SINKS: usize = 100;
 
 const TOOLGUN_BYTES: &[u8] = include_bytes!("../../../sounds/toolgun.wav");
@@ -11,10 +13,6 @@ const TOOLGUN_BYTES: &[u8] = include_bytes!("../../../sounds/toolgun.wav");
 thread_local!(
     static RODIO_STREAM: RefCell<Option<(MixerDeviceSink, VecDeque<SpatialPlayer>)>> =
         Default::default();
-);
-
-thread_local!(
-    static TICK_HANDLER: RefCell<Option<TickEventHandler>> = Default::default();
 );
 
 pub fn play_sound(block_pos: IVec3) {
@@ -43,37 +41,43 @@ pub fn play_sound(block_pos: IVec3) {
     });
 }
 
-pub fn initialize() {
-    let device_sink = DeviceSinkBuilder::open_default_sink().unwrap();
-
-    let mut tick_handler = TickEventHandler::new();
-    tick_handler.on(move |_event| {
-        RODIO_STREAM.with_borrow_mut(move |option| {
-            if let Some((_, sinks)) = option.as_mut() {
-                let (left_ear_pos, right_ear_pos) = get_sink_ear_positions();
-                for sink in sinks {
-                    sink.set_left_ear_position(right_ear_pos);
-                    sink.set_right_ear_position(left_ear_pos);
-                }
-            }
-        });
-    });
-
-    RODIO_STREAM.with_borrow_mut(move |option| {
-        *option = Some((device_sink, VecDeque::new()));
-    });
-    TICK_HANDLER.with_borrow_mut(move |option| {
-        *option = Some(tick_handler);
-    });
+pub struct SoundModule {
+    _tick_handler: TickEventHandler,
 }
 
-pub fn free() {
-    TICK_HANDLER.with_borrow_mut(|option| {
-        drop(option.take());
-    });
-    RODIO_STREAM.with_borrow_mut(|option| {
-        drop(option.take());
-    });
+impl SoundModule {
+    pub fn init() -> Self {
+        let device_sink = DeviceSinkBuilder::open_default_sink().unwrap();
+
+        let mut tick_handler = TickEventHandler::new();
+        tick_handler.on(move |_event| {
+            RODIO_STREAM.with_borrow_mut(move |option| {
+                if let Some((_, sinks)) = option.as_mut() {
+                    let (left_ear_pos, right_ear_pos) = get_sink_ear_positions();
+                    for sink in sinks {
+                        sink.set_left_ear_position(right_ear_pos);
+                        sink.set_right_ear_position(left_ear_pos);
+                    }
+                }
+            });
+        });
+
+        RODIO_STREAM.with_borrow_mut(move |option| {
+            *option = Some((device_sink, VecDeque::new()));
+        });
+
+        Self {
+            _tick_handler: tick_handler,
+        }
+    }
+}
+
+impl Module for SoundModule {
+    fn free(&mut self) {
+        RODIO_STREAM.with_borrow_mut(|option| {
+            drop(option.take());
+        });
+    }
 }
 
 fn get_sink_ear_positions() -> ([f32; 3], [f32; 3]) {
@@ -99,12 +103,6 @@ fn get_sink_ear_positions() -> ([f32; 3], [f32; 3]) {
     const HEAD_SIZE: f32 = 0.2;
 
     // Z is negative going forward
-
-    // print(format!(
-    //   "{:?} {:?}",
-    //   &[left_cos, left_sin],
-    //   &[right_cos, right_sin]
-    // ));
 
     let mut left_ear_pos = self_pos;
     left_ear_pos.x += HEAD_SIZE * left_cos; // x

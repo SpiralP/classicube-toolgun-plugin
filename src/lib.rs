@@ -1,4 +1,3 @@
-pub mod logger;
 pub mod plugin;
 pub mod textures;
 
@@ -6,30 +5,16 @@ use std::{os::raw::c_int, ptr};
 
 use classicube_helpers::time;
 use classicube_sys::IGameComponent;
-use tracing::debug;
 
 extern "C" fn init() {
-    logger::initialize(true, false, module_path!());
-
-    tracing::debug_span!("init").in_scope(|| {
-        debug!(
-            "Init {}",
-            concat!(env!("CARGO_PKG_NAME"), " v", env!("CARGO_PKG_VERSION"))
-        );
-
-        time!("plugin::initialize()", 5000, {
-            plugin::initialize();
-        });
-    })
+    time!("plugin::initialize()", 5000, {
+        plugin::initialize();
+    });
 }
 
 extern "C" fn free() {
-    tracing::debug_span!("free").in_scope(|| {
-        debug!("Free");
-
-        time!("plugin::free()", 1000, {
-            plugin::free();
-        });
+    time!("plugin::free()", 1000, {
+        plugin::free();
     });
 }
 

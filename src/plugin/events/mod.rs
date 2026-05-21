@@ -1,12 +1,25 @@
 pub mod local_blocks;
 pub mod other_blocks;
 
-pub fn initialize() {
-    local_blocks::initialize();
-    other_blocks::initialize();
+use self::{local_blocks::LocalBlocksModule, other_blocks::OtherBlocksModule};
+use crate::plugin::module::Module;
+
+pub struct EventsModule {
+    local_blocks_module: LocalBlocksModule,
+    other_blocks_module: OtherBlocksModule,
 }
 
-pub fn free() {
-    other_blocks::free();
-    local_blocks::free();
+impl EventsModule {
+    pub fn init() -> Self {
+        Self {
+            local_blocks_module: LocalBlocksModule::init(),
+            other_blocks_module: OtherBlocksModule::init(),
+        }
+    }
+}
+
+impl Module for EventsModule {
+    fn children(&mut self) -> Vec<&mut dyn Module> {
+        vec![&mut self.local_blocks_module, &mut self.other_blocks_module]
+    }
 }
