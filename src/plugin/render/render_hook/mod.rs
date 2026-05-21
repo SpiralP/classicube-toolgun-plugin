@@ -1,10 +1,8 @@
 pub mod renderable;
 
-use classicube_sys::{Entities, Entity, EntityVTABLE, ENTITIES_SELF_ID};
-use std::{
-    cell::Cell,
-    pin::Pin,
-};
+use std::{cell::Cell, pin::Pin};
+
+use classicube_sys::{ENTITIES_SELF_ID, Entities, Entity, EntityVTABLE};
 
 thread_local!(
     static ORIGINAL_FN: Cell<Option<unsafe extern "C" fn(*mut Entity, f32, f32)>> =

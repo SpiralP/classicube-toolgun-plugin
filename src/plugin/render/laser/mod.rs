@@ -9,12 +9,12 @@ use std::{
 use approx::assert_relative_eq;
 use classicube_sys::{
     Camera, Gfx, Gfx_LoadMatrix, Gfx_SetAlphaBlending, Gfx_SetAlphaTest, Gfx_SetFaceCulling,
-    Gfx_SetFog, Gfx_SetTexturing, Matrix, MatrixType__MATRIX_VIEW, Matrix_Identity, OwnedTexture,
-    Vec3, Vec4, MATH_DEG2RAD, MATH_RAD2DEG,
+    Gfx_SetFog, Gfx_SetTexturing, MATH_DEG2RAD, MATH_RAD2DEG, Matrix, Matrix_Identity,
+    MatrixType__MATRIX_VIEW, OwnedTexture, Vec3, Vec4,
 };
 use nalgebra::{
-    center, distance, AbstractRotation, Isometry3, IsometryMatrix3, Matrix3, Matrix4, Point3,
-    Rotation3, Scale3, Unit, UnitQuaternion, UnitVector3, Vector3,
+    AbstractRotation, Isometry3, IsometryMatrix3, Matrix3, Matrix4, Point3, Rotation3, Scale3,
+    Unit, UnitQuaternion, UnitVector3, Vector3, center, distance,
 };
 use nalgebra_glm::{
     identity, look_at, quat_look_at, rotate, rotate_x, rotate_y, rotate_z, scale, translate,
@@ -114,7 +114,7 @@ impl Laser {
             // Gfx_SetAlphaBlending(0);
             Gfx_SetFaceCulling(0);
 
-            Gfx_LoadMatrix(MatrixType__MATRIX_VIEW, &Gfx.View);
+            Gfx_LoadMatrix(MatrixType__MATRIX_VIEW, &raw const Gfx.View);
         }
     }
 }

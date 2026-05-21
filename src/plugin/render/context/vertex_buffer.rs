@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use classicube_helpers::WithInner;
 use classicube_sys::{
     Gfx_BindTexture, Gfx_SetVertexFormat, Gfx_UpdateDynamicVb_IndexedTris, OwnedGfxVertexBuffer,
-    PackedCol, Texture, VertexFormat__VERTEX_FORMAT_TEXTURED, VertexTextured, PACKEDCOL_WHITE,
+    PACKEDCOL_WHITE, PackedCol, Texture, VertexFormat__VERTEX_FORMAT_TEXTURED, VertexTextured,
 };
 use tracing::warn;
 
@@ -17,9 +17,9 @@ thread_local!(
 unsafe fn Gfx_Draw2DTexture(tex: &mut Texture, col: PackedCol, front: bool) {
     let mut vertices = Gfx_Make2DQuad(tex, col, front);
 
-    Gfx_SetVertexFormat(VertexFormat__VERTEX_FORMAT_TEXTURED);
+    unsafe { Gfx_SetVertexFormat(VertexFormat__VERTEX_FORMAT_TEXTURED) };
     TEX_VB
-        .with_inner(|tex_vb| {
+        .with_inner(|tex_vb| unsafe {
             Gfx_UpdateDynamicVb_IndexedTris(tex_vb.resource_id, vertices.as_mut_ptr() as _, 4);
         })
         .unwrap_or_else(|| {
@@ -29,8 +29,10 @@ unsafe fn Gfx_Draw2DTexture(tex: &mut Texture, col: PackedCol, front: bool) {
 
 #[allow(clippy::missing_safety_doc)]
 pub unsafe fn Texture_Render(tex: &mut Texture, front: bool) {
-    Gfx_BindTexture(tex.ID);
-    Gfx_Draw2DTexture(tex, PACKEDCOL_WHITE, front);
+    unsafe {
+        Gfx_BindTexture(tex.ID);
+        Gfx_Draw2DTexture(tex, PACKEDCOL_WHITE, front);
+    }
 }
 
 pub fn context_recreated() {

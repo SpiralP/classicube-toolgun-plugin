@@ -1,8 +1,8 @@
 use std::os::raw::c_int;
 
 use classicube_sys::{
-    cc_int16, Bitmap, Context2D, Context2D_DrawPixels, OwnedContext2D, OwnedTexture,
-    PackedCol_Make, TextureRec,
+    Bitmap, Context2D, Context2D_DrawPixels, OwnedContext2D, OwnedTexture, PackedCol_Make,
+    TextureRec, cc_int16,
 };
 use tracing::{debug, warn};
 
@@ -38,8 +38,8 @@ pub fn create_texture(block_width: f32) -> OwnedTexture {
         TextureRec {
             u1: 0.0,
             v1: 0.0,
-            u2: u2,
-            v2: v2,
+            u2,
+            v2,
         },
     );
 
@@ -54,14 +54,16 @@ unsafe fn draw_parts(context: &mut Context2D, width: c_int, height: c_int) {
     // lightning_frame_width[3] = 0xFFFF_0000;
     // lightning_frame_width[4] = 0xFF00_FF00;
     // lightning_frame_width[5] = 0xFF00_00FF;
-    Context2D_DrawPixels(
-        context,
-        0,
-        0,
-        &mut Bitmap {
-            scan0: lightning_frame_width.as_mut_ptr(),
-            width,
-            height,
-        },
-    );
+    unsafe {
+        Context2D_DrawPixels(
+            context,
+            0,
+            0,
+            &mut Bitmap {
+                scan0: lightning_frame_width.as_mut_ptr(),
+                width,
+                height,
+            },
+        );
+    }
 }

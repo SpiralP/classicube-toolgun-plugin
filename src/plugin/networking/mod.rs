@@ -7,7 +7,7 @@ use classicube_helpers::{async_manager, events::net::PluginMessageReceivedEventH
 use classicube_sys::CPE_SendPluginMessage;
 use tracing::{debug, error};
 
-use self::packet::{handle_packet, Packet};
+use self::packet::{Packet, handle_packet};
 
 thread_local!(
     static PLUGIN_MESSAGE_HANDLER: RefCell<Option<PluginMessageReceivedEventHandler>> =

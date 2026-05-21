@@ -1,23 +1,39 @@
 {
   "nodes": {
+    "flake-utils": {
+      "locked": {
+        "lastModified": 1758562930,
+        "narHash": "sha256-pXTuZ7zK7Mw/Di4K0Z/XJHm+iP0Lx0N8pfPc0cqcPsE=",
+        "owner": "SpiralP",
+        "repo": "nix-flake-utils",
+        "rev": "7ae99e77aa9506ed0d68b8ea9ad4a0ae5f57e98c",
+        "type": "github"
+      },
+      "original": {
+        "owner": "SpiralP",
+        "repo": "nix-flake-utils",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1735141468,
-        "narHash": "sha256-VIAjBr1qGcEbmhLwQJD6TABppPMggzOvqFsqkDoMsAY=",
+        "lastModified": 1779102034,
+        "narHash": "sha256-vZJZjLo513IeI8hjzHFc6TDezUd4uCE2Eq4SNO3DNNg=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "4005c3ff7505313cbc21081776ad0ce5dfd7a3ce",
+        "rev": "687f05a9184cad4eaf905c48b63649e3a86f5433",
         "type": "github"
       },
       "original": {
         "owner": "NixOS",
-        "ref": "nixos-24.11",
+        "ref": "nixos-25.11",
         "repo": "nixpkgs",
         "type": "github"
       }
     },
     "root": {
       "inputs": {
+        "flake-utils": "flake-utils",
         "nixpkgs": "nixpkgs"
       }
     }

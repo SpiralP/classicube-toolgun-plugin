@@ -8,12 +8,12 @@ use std::{
 
 use classicube_helpers::{entities::ENTITY_SELF_ID, tick::TickEventHandler};
 use classicube_sys::{
-    cc_uint8, BlockID, IVec3, Lighting, Net_Handler, Protocol, OPCODE__OPCODE_BULK_BLOCK_UPDATE,
-    OPCODE__OPCODE_SET_BLOCK,
+    BlockID, IVec3, Lighting, Net_Handler, OPCODE__OPCODE_BULK_BLOCK_UPDATE,
+    OPCODE__OPCODE_SET_BLOCK, Protocol, cc_uint8,
 };
 use tracing::debug;
 
-use crate::plugin::networking::packet::{handle_packet, Packet};
+use crate::plugin::networking::packet::{Packet, handle_packet};
 
 thread_local!(
     static SET_BLOCK_ORIGINAL: Cell<Net_Handler> = Default::default();
@@ -139,7 +139,7 @@ unsafe extern "C" fn lighting_on_block_changed_hook(
     new_block: BlockID,
 ) {
     if let Some(prev) = LIGHTING_ON_BLOCK_CHANGED_ORIGINAL.get() {
-        prev(x, y, z, old_block, new_block)
+        unsafe { prev(x, y, z, old_block, new_block) }
     }
 
     if old_block == 0 && new_block != 0 {
