@@ -6,7 +6,7 @@ pub mod networking;
 pub mod render;
 pub mod sound;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 
 use classicube_sys::Server;
 
@@ -18,6 +18,14 @@ use crate::plugin::{
 thread_local!(
     static MAIN_MODULE: RefCell<Option<MainModule>> = const { RefCell::new(None) };
 );
+
+thread_local!(
+    static PLUGIN_ACTIVE: Cell<bool> = const { Cell::new(false) };
+);
+
+pub fn is_plugin_active() -> bool {
+    PLUGIN_ACTIVE.get()
+}
 
 struct MainModule {
     logger: LoggerModule,
@@ -70,9 +78,11 @@ pub fn initialize() {
             *main_module = Some(MainModule::init());
         }
     });
+    PLUGIN_ACTIVE.set(true);
 }
 
 pub fn free() {
+    PLUGIN_ACTIVE.set(false);
     MAIN_MODULE.with_borrow_mut(|main_module| {
         if let Some(mut main_module) = main_module.take() {
             main_module.handle_free();

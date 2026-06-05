@@ -31,9 +31,41 @@ pub struct RenderHookModule {
 
 impl RenderHookModule {
     pub fn init() -> Self {
-        let me = unsafe { &mut *Entities.List[ENTITIES_SELF_ID as usize] };
+        let entity_ptr = unsafe { Entities.List[ENTITIES_SELF_ID as usize] };
+        if entity_ptr.is_null() {
+            tracing::warn!("local player entity is null, skipping VTABLE swap");
+            return Self {
+                _new_vtable: Box::pin(EntityVTABLE {
+                    Tick: None,
+                    Despawn: None,
+                    SetLocation: None,
+                    GetCol: None,
+                    RenderModel: None,
+                    ShouldRenderName: None,
+                }),
+                original_vtable: core::ptr::null(),
+            };
+        }
+        let me = unsafe { &mut *entity_ptr };
         let original_vtable = me.VTABLE;
         let v_table = unsafe { &*original_vtable };
+
+        if v_table.RenderModel.is_some_and(|f| {
+            core::ptr::fn_addr_eq(f, hook as unsafe extern "C" fn(*mut Entity, f32, f32))
+        }) {
+            tracing::warn!("VTABLE RenderModel already set to our hook, skipping");
+            return Self {
+                _new_vtable: Box::pin(EntityVTABLE {
+                    Tick: None,
+                    Despawn: None,
+                    SetLocation: None,
+                    GetCol: None,
+                    RenderModel: None,
+                    ShouldRenderName: None,
+                }),
+                original_vtable: core::ptr::null(),
+            };
+        }
 
         ORIGINAL_FN.set(v_table.RenderModel);
 
