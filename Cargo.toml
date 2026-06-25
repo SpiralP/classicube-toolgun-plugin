@@ -8,17 +8,17 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-anyhow = { version = "=1.0.102", features = ["backtrace"] }
+anyhow = { version = "=1.0.103", features = ["backtrace"] }
 approx = "=0.5.1"
 byteorder = "=1.5.0"
 classicube-helpers = { git = "https://github.com/SpiralP/rust-classicube-helpers.git" }
-classicube-sys = "=5.0.0"
-nalgebra = "=0.34.2"
-nalgebra-glm = "=0.20.0"
+classicube-sys = "=6.0.4"
+nalgebra = "=0.35.0"
+nalgebra-glm = "=0.21.0"
 rodio = { version = "=0.22.2", default-features = false, features = ["playback", "wav"] }
 tracing = "=0.1.44"
 tracing-subscriber = { version = "=0.3.23", features = ["env-filter"] }
 
 [build-dependencies]
-classicube-sys = "=5.0.0"
+classicube-sys = "=6.0.4"
 png = "=0.18.1"
